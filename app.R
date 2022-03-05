@@ -1,36 +1,33 @@
 library("shiny")
 library(igraph)
-
+library(dplyr)
+library(ggplot2)
+library(DT)
 setwd("/Users/jeroenkoning/Desktop/own_projects/nda/NDA_Olympics_Shiny_App")
 noc.regions <- read.csv('./data/noc_regions.csv')
-athlete.events <- read.csv('./data/athlete_events.csv')
-View(athlete.events)
+athlete.events <- as.data.frame(read.csv('./data/athlete_events.csv'))
 
 athlete.name.games <- list(athlete.events$Name, athlete.events$Games)
-g <- graph_from_data_frame(a, directed=TRUE, vertices = athlete.events$Name)
+
+all.games <- unique(athlete.events$Games)
+all.names <- unique(athlete.events$Name)
+print(min(athlete.events$Year))
 
 ui <- fluidPage(
-  "Hello, world!",
-  selectInput("dataset", label="Dataset", choices = ls("package:datasets")),
-  verbatimTextOutput("summary"),
-  tableOutput("table"),
-  "hihoho"
+  DT::dataTableOutput('x1')
 )
 
+
+data("iris")
 server <- function(input, output, session){
-  print(input, output)
+  output$x1 = DT::renderDataTable(athlete.events, server = FALSE)
+  
+  df.athlete <- reactive(athlete.events[athlete.events$Name == input$name, ])
   output$summary <- renderPrint({
-    summary(noc.regions)  
+    
   }) 
-  
-  output$table <- renderPrint({
-    dataset <- get(input$dataset, "package:datasets")
-    dataset
-  })
-  
-  
-  
 }
 
-options(shiny.autoreload.pattern = glob2rx("app.R"), shiny.launch.browser = TRUE)
+options(shiny.autoreload = TRUE, shiny.launch.browser = TRUE)
 shinyApp(ui, server)
+
