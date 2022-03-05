@@ -1,0 +1,153 @@
+---
+title: "Proposal Group Assignment"
+subtitle: "Group 15 - Network Data Analytics"
+author:
+- "Beau Kuperus | 442068bk"
+- "Jeroen Koning | 480406jk"
+
+date: February 23, 2022
+output: pdf_document
+---
+
+```{r include=FALSE}
+# Load require packages
+library(data.table)
+library(ggplot2)
+
+# Set working directory
+setwd("~/Google Drive/Master Business Information Management/Network Data Analytics/Group Project - Shiny App")
+
+# Load data
+dt.athlete.events <- fread("athlete_events.csv") 
+
+# Save dt.athlete.events 
+# Next time you can simply call the load function (below)
+save(dt.athlete.events, file="athlete_events.RData")
+```
+
+```{r include=FALSE}
+# Load previously saved dt.athlete.events 
+# You can start in this line if you have previously saved these data.
+load("athlete_events.RData") 
+```
+
+```{r echo=FALSE}
+# Calculate number of unique athletes
+uniqueN(dt.athlete.events$ID)
+
+# Calculate number of unique events
+nrow(dt.athlete.events[, unique(Games), by = list(Event)])
+
+# Calculate number of unique games
+uniqueN(dt.athlete.events$Games)
+
+```
+
+# **120 years of Olympic history**
+
+The data set used for our group assignment will contain basic data on athletes and their results from the Olympics in Athens (1896) to the Olympics in Rio (2016). The dataset was retrieved from [kaggle](https://www.kaggle.com/heesoo37/120-years-of-olympic-history-athletes-and-results) and contains 271116 rows and 15 columns. The data used for the data set was scraped from [www.sports-reference.com](http://www.sports-reference.com/) in May 2018. The data set contains data of 135571 unique athletes and 6192 events over 51 Olympic games.
+
+The definition of each variable can be found in the table below. Note that the table only represents network-related variables. As shown in table 1, the variable *Games* contains a combination of the variables *Year* and *Season*. Therefore, this variable could be interpreted as not tidy.
+
+| Variable Name | Description                                      |
+|---------------|--------------------------------------------------|
+| **ID**        | Unique number for each athlete                   |
+| **Name**      | Athlete's name                                   |
+| **Sex**       | Gender of athlete, either male (M) or female (F) |
+| **Age**       | Age of athlete (in years)                        |
+| **Height**    | Height of athlete (in centimeters)               |
+| **Weight**    | Weight of athlete (in kilograms)                 |
+| **Team**      | Team name                                        |
+| **NOC**       | National Olympic Committee (a 3-letter code)     |
+| **Games**     | Year and season of Olympic game                  |
+| **Year**      | Year of Olympic game                             |
+| **Season**    | Summer of winter Olympics                        |
+| **City**      | Host city of Olympics                            |
+| **Sport**     | Sport that the athlete practices                 |
+| **Event**     | Sport Event the athlete participated in          |
+| **Medal**     | Either Gold, Silver, Bronze, or NA               |
+
+*Table 1. Variable Description*
+
+# Creating Specific Datasets
+
+```{r}
+# Adding Attributes with specific counts:
+
+# - Count in how many events each athlete has participated
+# First, rename ID attribute - since ID actually means Atlethe's ID
+names(dt.athlete.events)[names(dt.athlete.events) == "ID"] <- "Athlete_ID"
+dt.athlete.events[, n_events := .N, by = list(Athlete_ID)]
+
+# - Count in how many athletes have participated in each unique event
+dt.athlete.events[, n_athlete_event := .N, by = list(Event, Games)]
+
+# - Count how many athletes have participated in each unique olympic game
+dt.athlete.events[, n_athlete_olympic := .N, by = list(Year, Season)]
+
+```
+
+
+
+### Olympic Games
+Our dataset contains 51 unique games over 41 Cities, from the year 1896 to 2016. By only globally looking at the dataset you can see that the number of participating athletes in each game has increased over time, and there's a subtantial difference between the number of athelets in Winter and Summer Olympics. This is also visible in de plots below. Moreover, the histogram show that 1924 the winter olympics were introduced, and that until 1992 the summer and winter Olympics were given in the same year. After 1992, the Summer and Winter Olympics were held alternately every two years.
+
+```{r warning=FALSE}
+# Create dataframe with 51 unique olympic 
+dt.olympic <- dt.athlete.events[!duplicated(dt.athlete.events[, list(Year, Season)]), 
+                                list(City, Year, Season, n_athlete_olympic)]
+
+# Add ID to each olympic game and reorder columns to improve readability
+dt.olympic[order(Year), Olympic_ID := seq.int(nrow(dt.olympic))]
+dt.olympic <- dt.olympic[order(Olympic_ID), list(Olympic_ID, City, Year, Season, n_athlete_olympic)]
+dt.olympic
+
+# Add olympic ID to dt.athlete.events data frame
+dt.athlete.olympic <-merge(dt.athlete.events, dt.olympic[, list(Olympic_ID, Year, Season)], by = c("Year","Season"), all.x = TRUE)
+# Reorder columns to improve readability; Remove attribute "Games" because it isn't in tidy format.
+dt.athlete.olympic <- dt.athlete.olympic[, c(3:10, 15:16, 13:14, 17, 19, 1:2, 12, 18)]
+
+
+ggplot(dt.athlete.olympic, aes(x = Year)) + 
+  geom_histogram(stat = "count", binwidth = 1, width = 2,
+                 aes(fill = Season)) +
+  scale_x_continuous(breaks = seq(1895, 2015, 10)) + 
+  xlab("Year of Olympic game") + ggtitle("Number of Athletes per Olympic Game Divided by Season") +
+  ylab("Number of Athletes") 
+
+ggplot(data = dt.olympic, aes(x = Year, y = n_athlete_olympic, group = Season, color = Season)) +
+  geom_line() +
+  geom_point() + 
+  scale_x_continuous(breaks = seq(1895, 2015, 10)) + 
+  ggtitle("Number of Athletes per Olympic Game", subtitle = "Divided by Season") +
+  xlab("Year of Olympic game") + 
+  ylab("Number of Athletes") 
+```
+### Olympic Athletes
+Our data contains 135571 unique atlethes.
+
+```{r}
+# Create sub dataframe with only athlete specific attributes
+dt.athlete <- dt.athlete.events[, list(Athlete_ID, Name, Sex, Age, Weight, Height, Medal, n_events)]
+
+# Create dataframe with athletes that have won medals and count how many medals they have won
+dt.medals.athletes <- dt.athlete[!is.na(Medal), n_medals := .N, by = Athlete_ID][!is.na(n_medals), list(n_medals = max(n_medals)), by = Athlete_ID]
+
+# Add column with n_medals per athlete to dt.athlete and replace NA with value 0.
+dt.athlete <- merge(dt.medals.athletes, dt.athlete[, list(Athlete_ID, Name, Sex, Age, Weight, Height, n_events)], by = "Athlete_ID", all.y = TRUE)
+dt.athlete$n_medals[is.na(dt.athlete$n_medals)] <- 0
+
+# Create dataframe with unique athlete ID's and Names and their attributes
+dt.athlete <- dt.athlete[!duplicated(Athlete_ID)]
+
+# Add column with number of medals per athlete to dt.athlete.events
+dt.athlete.events <- merge(dt.athlete.events, dt.athlete[, list(Athlete_ID, n_medals)], by = "Athlete_ID", all.x = TRUE)
+  # and reorder columns to improve readability
+  dt.athlete.events <- dt.athlete.events[, c(1:2, 19, 3:18)]
+```
+
+
+
+
+
+
