@@ -124,7 +124,7 @@ ggplot(data = dt.olympic, aes(x = Year, y = n_athlete_olympic, group = Season, c
   ylab("Number of Athletes") 
 ```
 ### Olympic Athletes
-Our data contains 135571 unique atlethes.
+Our data contains 135571 unique athletes of which 28251 have won medals. 
 
 ```{r}
 # Create sub dataframe with only athlete specific attributes
@@ -140,12 +140,223 @@ dt.athlete$n_medals[is.na(dt.athlete$n_medals)] <- 0
 # Create dataframe with unique athlete ID's and Names and their attributes
 dt.athlete <- dt.athlete[!duplicated(Athlete_ID)]
 
-# Add column with number of medals per athlete to dt.athlete.events
-dt.athlete.events <- merge(dt.athlete.events, dt.athlete[, list(Athlete_ID, n_medals)], by = "Athlete_ID", all.x = TRUE)
-  # and reorder columns to improve readability
-  dt.athlete.events <- dt.athlete.events[, c(1:2, 19, 3:18)]
+skimr::skim(dt.athlete)
 ```
 
+### Athletes with Olympic Medals
+
+```{r}
+### ------- GOLD MEDALS ------- ###
+# Create dataframe with athletes that have won Gold medals and count how many Gold medals they have won
+dt.gold.medals <- subset(dt.athlete.events)
+dt.gold.medals <- dt.gold.medals[Medal == "Gold", 
+                                 n_gold_medals := .N, 
+                                 by = Athlete_ID][Medal == "Gold", 
+                                                  list(n_gold_medals = max(n_gold_medals)), 
+                                                  by = Athlete_ID]
+
+# Add column with n_gold_medals per athlete to dt.athlete and replace NA with value 0.
+dt.athlete <- merge(dt.gold.medals, dt.athlete, by = "Athlete_ID", all.y = TRUE)
+dt.athlete$n_gold_medals[is.na(dt.athlete$n_gold_medals)] <- 0
+
+### ------- SILVER MEDALS ------- ###
+# Create dataframe with athletes that have won Gold medals and count how many Gold medals they have won
+dt.silver.medals <- subset(dt.athlete.events)
+dt.silver.medals <- dt.silver.medals[Medal == "Silver", 
+                                 n_silver_medals := .N, 
+                                 by = Athlete_ID][Medal == "Silver", 
+                                                  list(n_silver_medals = max(n_silver_medals)), 
+                                                  by = Athlete_ID]
+
+# Add column with n_silver_medals per athlete to dt.athlete and replace NA with value 0.
+dt.athlete <- merge(dt.silver.medals, dt.athlete, by = "Athlete_ID", all.y = TRUE)
+dt.athlete$n_silver_medals[is.na(dt.athlete$n_silver_medals)] <- 0
+
+### ------- BRONZE MEDALS ------- ###
+# Create dataframe with athletes that have won Gold medals and count how many Gold medals they have won
+dt.bronze.medals <- subset(dt.athlete.events)
+dt.bronze.medals <- dt.bronze.medals[Medal == "Bronze", 
+                                 n_bronze_medals := .N, 
+                                 by = Athlete_ID][Medal == "Bronze", 
+                                                  list(n_bronze_medals = max(n_bronze_medals)), 
+                                                  by = Athlete_ID]
+
+# Add column with n_bronze_medals per athlete to dt.athlete and replace NA with value 0.
+dt.athlete <- merge(dt.bronze.medals, dt.athlete, by = "Athlete_ID", all.y = TRUE)
+dt.athlete$n_bronze_medals[is.na(dt.athlete$n_bronze_medals)] <- 0
+```
+
+```{r}
+# Add column with number of medals per athlete to dt.athlete.events
+dt.athlete.events <- merge(dt.athlete.events, dt.athlete[, list(Athlete_ID, n_medals, n_gold_medals, n_silver_medals, n_bronze_medals)], by = "Athlete_ID", all.x = TRUE)
+# and reorder columns to improve readability
+dt.athlete.events <- dt.athlete.events[, c(1:2, 19:22, 3:18)]
+```
+
+### Olympic Teams
+1570 Athletes have competed in "multiple" NOC teams.
+- Note: that some NOC codes have changed over the years due to historical matters:
+
+  * Germany, for example, was divided in East (GDR) and West (FRG) Germany from 1949 to 1990. Our dataset shows that the NOC code for Germany was last used 1964 before the devide. From the Olympics in 1968 until 1988 the NOC codes for East and West Germany where used. After the two regions reunited, the noc code for Germany (as a whole) was first used in the Olympic of 1992.
+  
+  * The same account for the Soviet Union, the NOC code URS is used until 1988. Whereas, the NOC for Russia (RUS) is used until 1924, and after 1994. This is somewhat in line with the existence of the Soviet Union from 1922 to 1991.
+
+```{r}
+dt.athlete.events[NOC == "GER" | NOC == "GDR" | NOC == "FRG", list(Year = unique(Year)), by = list(Team, NOC)][order(Year)]
+dt.athlete.events[NOC == "URS" | NOC == "RUS", list(Year = unique(Year)), by = list(Team, NOC)][order(Year)]
+
+dt.athlete.events[Year > 1940 & Year < 2000, list(Year, NOC, Team)][order(Year)]
+```
+
+
+```{r}
+# Explore athletes that have competed for multiple NOC Teams
+# Explore athletes that have compete in multiple different NOC (land code Team)
+dt.athlete.multiple.noc <- dt.athlete.events[, list(NOC = unique(NOC)), 
+                  by = Athlete_ID][duplicated(Athlete_ID)]
+uniqueN(dt.athlete.multiple.noc$Athlete_ID)
+
+# Create data frame with athletes with multiple NOC's data frame with 
+dt.dups.team <- dt.athlete.events[, c("Athlete_ID", "NOC")]
+dt.dups.team <- dt.athlete.events[Athlete_ID %in% dt.athlete.multiple.teams$Athlete_ID &
+                                    !duplicated(dt.dups.team), list(Athlete_ID, Name, Team, NOC, Event)]
+
+dt.example <- dt.dups.team[, list(Athlete_ID, NOC, Team)]
+dt.example[grep("German", Team)]
+example.dubs <- dt.example[, c("Athlete_ID", "NOC")]
+
+for (i in 1:nrow(dt.example)){
+  if(grepl("Germany", dt.example$Team[i]) == TRUE){
+    dt.example$NOC[i] <- "GER"
+    dt.example.2 <- dt.example[!duplicated(example.dubs)]
+  } else{}
+}
+dt.example.2[grep("German", Team)]
+
+
+dt.noc.year <- dt.athlete.events[, list(NOC = unique(NOC)), by = Year]
+dt.noc.year[, n_NOC_year := .N, by = Year]
+dt.noc.year[, n_year_NOC := .N, by = NOC]
+dt.noc.year
+
+dt.noc.year[, unique()]
+ggplot(dt.noc.year, aes(x = Year, y = n_year_NOC)) + geom_col()
+
+ggplot(dt.noc.year, aes(x = Year)) + geom_histogram()
+```
+
+
+# HIERONDER IS TROEP
+
+
+```{r}
+str_contains(dt.example$Team[1], "United")
+grepl("United", dt.example$Team[2])
+
+
+dt.example$Team[2]
+```
+
+
+```{r}
+for (i in 1:5){
+  if(dt.example$Athlete_ID[i] == 116){
+    dt.example$Athlete_ID[i] <- dt.example$Athlete_ID[i] + 2
+  }
+}
+
+
+
+for (i in 1:nrow(dt.example)){
+  if(dt.example[i & NOC == "GER"]){}
+}
+  
+  
+  dt.dups.team[grep("Germany", Team) & NOC == "GER", list(Athlete_ID, NOC, Team)] <-
+
+```
+
+
+```{r}
+dt.dups.team <- dt.athlete.events[, c("Athlete_ID", "Team", "NOC")]
+dt.dups.team <- dt.athlete.events[Athlete_ID %in% dt.athlete.multiple.teams$Athlete_ID &
+                                    !duplicated(dt.dups.team), list(Athlete_ID, Name, Team, NOC, Event)]
+
+dt.dups.team[, list(Athlete_ID, Team, NOC)]
+
+dt.athlete.events[Athlete_ID == 116]
+dt.athlete.events[Athlete_ID == 705]
+
+
+dt.dups.team.1 <- dt.dups.team[grep("1", Team)][!grep("-1", Team), list(Team, NOC, Event)]
+
+
+dt.example <- subset(dt.dups.team)
+
+complete.teams <- f.function(){
+  for (i in 1:nrow(dt.example)){
+    if (dt.example$Team[i] == dt.example[grep("-1", Team)]){
+        dt.example$Team[i] = "Private"
+     }
+  }
+  
+  
+}
+
+
+
+
+
+if (x == "-1") {
+  dt.dups.team[grep("-1", Team), Team]
+  
+}
+```
+
+
+```{r}
+dubs <- dt.dups.team[, list(Team, NOC)]
+
+dt.dups.team[, list(Athlete_ID, Team, NOC)][order(NOC)][!duplicated(dubs)]
+
+
+dt.dups.team[, list(Athlete_ID, Team, NOC)][order(NOC)]
+
+
+# [order(Athlete_ID)]
+# dt.dups.team
+# 
+# x <- dt.dups.team[duplicated(Athlete_ID),][order(Athlete_ID)]
+# dt.dups.team
+
+```
+
+
+
+
+```{r}
+dt.athlete.multiple.teams <- dt.athlete.events[Athlete_ID %in% dt.athlete.multiple.teams$Athlete_ID, list(Athlete_ID, Name, NOC,Team)][order(Athlete_ID)]
+
+dt.athlete.multiple.teams[, n_teams := uniqueN(Team), by = Athlete_ID]
+
+dt.athlete.multiple.teams[!duplicated(Athlete_ID)][n_teams > 2][order(-n_teams)]
+
+dt.athlete.team <- dt.athlete.events[, list(Athlete_ID, Team)]
+
+dt.athlete.events[grep("Germany", Team), unique(Team)]
+
+
+
+dt.athlete.multiple.noc <- dt.athlete.events[Athlete_ID %in% dt.athlete.multiple.noc$Athlete_ID, list(Athlete_ID, Name, NOC)][order(Athlete_ID)]
+
+View(dt.athlete.multiple.noc)
+
+dt.athlete.events$NOC
+dt.athlete.events[is.na(NOC)]
+
+
+
+```
 
 
 
