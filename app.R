@@ -6,9 +6,11 @@ library(dplyr)
 library(ggplot2)
 library(DT)
 library("data.table")
-# setwd("/Users/jeroenkoning/Desktop/own_projects/nda/NDA_Olympics_Shiny_App/")
+
 noc.regions <- read.csv('./data/noc_regions.csv')
 athlete.events <- as.data.table(read.csv('./data/athlete_events.csv'))
+
+load('athletes.RData')
 
 athlete.name.games <- list(athlete.events$Name, athlete.events$Games)
 
@@ -18,8 +20,20 @@ all.events <- unique(athlete.events$Event)
 all.sports <- unique(athlete.events$Sport)
 
 ui <- fluidPage(
-  img(src = "./olympic_rings.png", height = 30, width = 100),
-  titlePanel("Exploring the ..."),
+  # Import CSS
+  tags$head(
+    tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")
+  ),
+  div(
+    class = 'header-row',
+  fluidRow(
+    column(1,
+      img(src = "./olympic_rings.png", height = 30, width = 100),
+    ),
+    titlePanel("Olympiata"),
+  ),
+  h3('Finding out what and who matters in olympic events'),
+  ),
 
   tabsetPanel(
     tabPanel("Athletes",
@@ -28,13 +42,13 @@ ui <- fluidPage(
     tabPanel("Events",
    sidebarLayout(
     sidebarPanel(
-      selectizeInput(
-        "sport",
-        "Choose a sport",
-        all.sports,
-        multiple=TRUE,
-        options = list(maxItems = 1)
-      ),
+      # selectizeInput(
+      #   "sport",
+      #   "Choose a sport",
+      #   all.sports,
+      #   multiple=TRUE,
+      #   options = list(maxItems = 1)
+      # ),
       selectizeInput(
         "event",
         "Choose an event",
@@ -68,17 +82,19 @@ ui <- fluidPage(
       ),
     tabPanel("Centrality",
       fluidRow(
-        column(4, 
+        column(6, 
             h5('Athletes ranked by degree'),
-            textOutput('athlete_degree'),
+            DT::dataTableOutput("athlete.degree.dt"),
             h5('Athletes ranked by betweenness'),
-            textOutput('athlete_betweenness'),
+            textOutput('athlete.betweenness'),
+            DT::dataTableOutput("athlete.betweenness.dt"),
             h5('Athletes ranked by closeness'),
-            textOutput('athlete_closeness')
+            DT::dataTableOutput("athlete.closeness.dt"),
+            textOutput('athlete.closeness')
         ),
-        column(8,
-          plotOutput('degree_distribution'), 
-          textOutput('text_degree_distribution')
+        column(6,
+          plotOutput('degree.distribution'), 
+          textOutput('text.degree.distribution')
         ),
       ),
     ),
@@ -97,19 +113,26 @@ ui <- fluidPage(
           h3('Age homophily'),
           textOutput('age_homophily'),
           h3('Weight homophily'),
-          
-
-      
         )
       )
-      )
+    ),
+
+    ### SPORTSFINDER TAB 
+    tabPanel("Sport finder",
+      p('Are you an aspiring athlete? Or just wondering what you could have excelled at given your body type?
+      The sports finder is here to help you find the sport that you are perfect for!
+      '),
+      numericInput('height', "Height in centimeters:", 180, min = 60, max = 260),
+      numericInput('weight', "Weight in kilograms:", 65, min = 20, max = 200),
+      actionButton('find.sport.button', 'Find your sport!'),
+      textOutput('found.sport.details'),
+    )
     )
   )
   ), 
     )
   )
   # Events exploration
- 
 )
 
 
@@ -152,48 +175,69 @@ server <- function(input, output, session) {
    visIgraph(g.athletes(), idToLabel = TRUE)
   })
 
-  output$degree_distribution <- renderPlot({
+  output$degree.distribution <- renderPlot({
     g <- g.athletes()
     ggplot() + geom_histogram(aes(x=degree(g)),fill="orange", color="orange")
     
   })
 
-  output$text_degree_distribution <- renderText({
+  output$text.degree.distribution <- renderText({
     paste('Degree distribution: how many other athletes has athlete competed with in', input$event)
   })
-  output$athlete_degree <- renderText({
+  output$athlete.degree <- renderText({
     g <- g.athletes()
     V(g)$degree <- degree(g)
-    athletes.per.event()
     dt.top.athletes <- data.table(get.data.frame(g, what='vertices'))[order(-degree)]
-    paste('i')
+    print(dt.top.athletes)
     paste(dt.top.athletes[1]$name, '---', as.character(dt.top.athletes[1]$degree))
   })
 
-  output$athlete_betweenness <- renderText({
+  output$athlete.degree.dt <- DT::renderDataTable({
+    g <- g.athletes()
+    V(g)$degree <- degree(g)
+    dt.top.athletes <- data.table(get.data.frame(g, what='vertices'))[order(-degree)]
+    return(dt.top.athletes)
+  })
+
+  output$athlete.betweenness.dt <- DT::renderDataTable({
     g <- g.athletes()
     V(g)$betweenness <- betweenness(g)
     dt.top.athletes <- data.table(get.data.frame(g, what='vertices'))[order(-betweenness)]
-    paste(dt.top.athletes[1]$name, '---', as.character(dt.top.athletes[1]$betweenness))
+    return(dt.top.athletes)
   })
-
-  output$athlete_closeness<- renderText({
+ 
+  output$athlete.closeness.dt <- DT::renderDataTable({
     g <- g.athletes()
     V(g)$closeness <- closeness(g)
     dt.top.athletes <- data.table(get.data.frame(g, what='vertices'))[order(-closeness)]
-    paste(dt.top.athletes[1]$name, '---', as.character(dt.top.athletes[1]$closeness))
+    return(dt.top.athletes)
   })
 
-  output$height_homophily <- renderText({
+  output$height.homophily <- renderText({
     g <- g.athletes()
     g.all.height <- induced.subgraph(g, !is.na(V(g)$Height))
     print(V(g.all.height)$Height)
     homophily <- assortativity(g.all.height, V(g.all.height)$Height)
     paste(homophily)
   })
-  
 
+  # Sports finder!
 
+  convert.kg.to.lbs <- function(kg){
+    one.kg.in.lbs <- 2.2
+    return(kg * one.kg.in.lbs)
+  }
+
+  found.sport <- eventReactive(input$find.sport.button, {
+    user.height <- input$height
+    user.weight <- convert.kg.to.lbs(input$weight)
+    print(user.height)
+    return(user.weight)
+  })
+
+  output$found.sport.details <- renderText({
+    paste(found.sport())
+  })
 
 }
 

@@ -5,7 +5,7 @@ account: ndagroup15-bk-jk
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5834450
-bundleId: 5673448
+bundleId: 5675238
 url: https://ndagroup15-bk-jk.shinyapps.io/nda_olympics_shiny_app/
-when: 1647029735.19511
-lastSyncTime: 1647029735.19512
+when: 1647087764.96299
+lastSyncTime: 1647087764.963

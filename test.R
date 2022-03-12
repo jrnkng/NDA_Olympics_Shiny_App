@@ -145,3 +145,37 @@
 # g.bi
 # plot.igraph(g, vertex.label.cex = 0.7)
 
+# athlete.events <- as.data.table(read.csv('./data/athlete_events.csv'))
+
+
+# event.col.nr <- 14
+
+# dt.events <- unique(athlete.events[, 14, drop=FALSE], by='Event')
+# dt.events$height_avg <- 0
+# dt.events$height_std <- 0
+# dt.events$weight_avg <- 0
+# dt.events$weight_std <- 0
+
+
+# all.events <- dt.events$Event
+# for(event in all.events){
+#     event.weights <- athlete.events[Event == event & !is.na(Weight)]$Weight
+#     event.heights <- athlete.events[Event == event & !is.na(Height)]$Height
+    
+#     height.mean <- round(mean(event.heights), 0)
+#     height.std <- sqrt(var(event.heights))
+    
+#     weight.mean <- round(mean(event.weights), 0)
+#     weight.std <- sqrt(var(event.weights))
+    
+#     dt.events[Event == event]$height_avg = height.mean 
+#     dt.events[Event == event]$height_std<- height.std
+    
+#     dt.events[Event == event]$weight_avg = weight.mean 
+#     dt.events[Event == event]$weight_std<- weight.std
+    
+# } 
+
+# write.csv(
+#     dt.events
+# )

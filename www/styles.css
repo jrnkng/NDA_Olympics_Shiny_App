@@ -1,0 +1,30 @@
+@import url("https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap");
+
+body {
+  background-color: rgb(255, 207, 184);
+  /* color: white;  */
+}
+
+.container-fluid {
+  padding-right: 0px;
+  padding-left: 0px;
+}
+
+.tabset-panel-row {
+  background-color: khaki;
+}
+.header-row {
+  background-color: rgb(32, 55, 105);
+  color: white; /* text color */
+  padding: 30px;
+}
+
+/* Change header text to imported font */
+h2 {
+  font-family: "Yusei Magic", sans-serif;
+}
+
+/* Make text visible on inputs */
+.shiny-input-container {
+  color: #474747;
+}
